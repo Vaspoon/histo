@@ -13,6 +13,7 @@ import torch
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '../pdl1_project/prov-gigapath'))
 
+sys.path.append(os.path.join(os.path.dirname(__file__), '../prov-gigapath'))
 from gigapath.pipeline import run_inference_with_slide_encoder
 import gigapath.slide_encoder as slide_encoder
 
@@ -74,6 +75,28 @@ def get_HE_slides_pdl1(args, df_info):
     Returns:
         HandE_slides_tile_embeds (list): List of paths to tile embeds
         for all PD-L1 H&E slides in the dataframe
+    """
+
+    HandE_slides_tile_embeds = []
+    data_dir = Path(args.tile_embed_dir)
+    for index, row in df_info.iterrows():
+        he_slide = row['slide_id'].split(".")[0]
+        he_path = data_dir / f"{he_slide}.h5"
+        if he_path.exists():
+            HandE_slides_tile_embeds.append(he_path)
+        else:
+            print(f"[INFO] {he_path} does not exist")
+    return HandE_slides_tile_embeds
+
+def get_HE_slides_ttf1(args, df_info):
+    """
+    Returns a list of all paths to tile embeds of TTF1 H&E slides
+    Args:
+        args (argparse.Namespace): Arguments
+        df_info (pd.DataFrame): Dataframe with slide information
+    Returns:
+        HandE_slides_tile_embeds (list): List of paths to tile embeds
+        for all TTF1 H&E slides in the dataframe
     """
 
     HandE_slides_tile_embeds = []
@@ -164,16 +187,17 @@ if __name__ == "__main__":
     parser.add_argument('--checkpoint_dir', type=str, help='Directory consisting of model checkpoints')
     parser.add_argument('--dataset_csv', type=str, help='Path to the train csv file')
     parser.add_argument('--output_dir', type=str, help='Directory to save slide embeddings')
-    parser.add_argument('--study', type=str, choices=['pdl1', 'p53', 'ki67'], help='Study to generate slide embeddings for')
+    parser.add_argument('--study', type=str, choices=['pdl1', 'p53', 'ki67','ttf1'], help='Study to generate slide embeddings for')
     parser.add_argument('--model_name', type=str, help='Name of TANGLE model checkpoint')
     parser.add_argument('--tile_embed_dir', type=str, help='Directory where tile embeddings are stored')
+    parser.add_argument('--slide_encoder_path',type=str,default='slide_encoder.pth',help='Directory where the slide encoder is, could be in cache')
     args = parser.parse_args()
 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     for fold in args.folds:
         # obtaining paths to all models in the fold
-        model_paths = [Path(f"{args.checkpoint_dir}/fold_{fold}/{args.model_name}"), Path('slide_encoder.pth')]
+        model_paths = [Path(f"{args.checkpoint_dir}/fold_{fold}/{args.model_name}"), Path(args.slide_encoder_path)]
         print(f"[INFO] Models: {model_paths}")
 
         # obtaining paths to all PD-L1 H&E slides
@@ -193,10 +217,15 @@ if __name__ == "__main__":
             HE_slides_train = get_HE_slides_ki67(args, df_info_train)
             HE_slides_val = get_HE_slides_ki67(args, df_info_val)
             HE_slides_test = get_HE_slides_ki67(args, df_info_test)
+        elif args.study == 'ttf1':
+            HE_slides_train = get_HE_slides_ttf1(args, df_info_train)
+            HE_slides_val = get_HE_slides_ttf1(args,df_info_val)
+            HE_slides_test = get_HE_slides_ttf1(args, df_info_test)
 
         for model_path in model_paths:
             new_checkpoint = get_model(model_path)
-            if model_path.name != 'slide_encoder.pth':
+            # if model_path.name != 'slide_encoder.pth':
+            if 'slide_encoder.pth' not in model_path.name:
                 model_save_path = model_path.parent / f"{model_path.stem}_adjusted.pt"
                 torch.save(new_checkpoint, model_save_path)
                 print(f"[INFO] Adjusted Model saved at: {model_save_path}")
