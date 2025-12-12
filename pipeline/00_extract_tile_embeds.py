@@ -22,8 +22,9 @@ def save_to_h5(file_path, embeddings, coordinates):
         f.create_dataset('coords', data=coordinates.numpy())
 
 def extract_tile_embeddings(slide_path: Path, tile_encoder):
-    extensions = ["*.jpeg", "*.jpg", "*.JPEG", "*.JPG"]
-    image_paths = [str(p) for ext in extensions for p in slide_path.rglob(ext)]
+    extensions = ["*.jpeg", "*.jpg", "*.JPEG", "*.JPG","*.png"]
+    folder = slide_path.parent
+    image_paths = [str(p) for ext in extensions for p in folder.rglob(ext)]
     tile_encoder_outputs = run_inference_with_tile_encoder(image_paths, tile_encoder)
     return tile_encoder_outputs
 

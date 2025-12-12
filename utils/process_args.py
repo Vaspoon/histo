@@ -8,7 +8,7 @@ def process_args():
     #----> User setup args
     parser.add_argument('--data_dir', type=str, help='Path to tile embeddings.')
     parser.add_argument('--info_csv', type=str, help='Path to info csv.')
-    parser.add_argument('--study', type=str, choices=['pdl1', 'p53', 'ki67'], help='study to train on')
+    parser.add_argument('--study', type=str, choices=['pdl1', 'p53', 'ki67','ttf1'], help='study to train on')
     parser.add_argument('--dataset_csv', type=str, help='Path to the train csv file')
 
     #----> training args

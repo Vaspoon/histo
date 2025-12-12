@@ -18,12 +18,14 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 sys.path.append(os.path.join(os.path.dirname(__file__), '../pdl1_project/prov-gigapath'))
 
 from datasets.HEIHCDataset import HEIHCDataset
+sys.path.append(os.path.join(os.path.dirname(__file__), '../prov-gigapath'))
 from gigapath.pipeline import load_tile_slide_encoder
 from losses.tangle_loss import InfoNCE, apply_random_mask
 from utils.process_args import process_args
 from utils.learning import set_seed
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+# DEVICE = torch.device("cpu")
 
 class SSL(nn.Module):
     def __init__(self, num_classes=2):
@@ -45,6 +47,7 @@ class SSL(nn.Module):
 
         with torch.cuda.amp.autocast(dtype=torch.float16):
             slide_embeds = self.slide_encoder(tile_embeds.cuda(), coords.cuda(), all_layer_embed=True)    
+            # slide_embeds = self.slide_encoder(tile_embeds, coords, all_layer_embed=True)    
 
         outputs = {"layer_{}_embed".format(i): slide_embeds[i] for i in range(len(slide_embeds))}
         outputs["last_layer_embed"] = slide_embeds[-1]
@@ -200,6 +203,24 @@ def get_matching_pairs_ki67(df_info):
         IHC_slides.append(ihc_slide)
     return list(zip(HE_slides, IHC_slides))
 
+
+def get_matching_pairs_ttf1(df_info):
+    HE_slides, IHC_slides = [], []
+    for index, row in df_info.iterrows():
+        he_slide, ihc_slide,slide_id = row['slide_he'].split(".")[0], row['slide_ihc'].split(".")[0], row['slide_id'].split(".")[0]
+
+        # check if tile embeddings are present
+        he_path = DATA_DIR /'he'/slide_id/f"{he_slide}.h5"
+        ihc_path = DATA_DIR /'ihc'/slide_id/f"{ihc_slide}.h5"
+
+        if not he_path.exists() or not ihc_path.exists():
+            print(f"[INFO] Missing tile embeddings for slide {he_slide} or {ihc_slide}. Skipping...")
+            continue
+
+        HE_slides.append(he_slide)
+        IHC_slides.append(ihc_slide)
+    return list(zip(HE_slides, IHC_slides))
+
 if __name__ == "__main__":
     args = process_args()
     args = vars(args)
@@ -207,7 +228,7 @@ if __name__ == "__main__":
 
     if args['only_class_loss']:
         EXP_ID = (
-            f"tangle_{args['study']}_binary_"
+F            f"tangle_{args['study']}_binary_"
             f"{args['n_tokens']}_{args['temperature']}_"
             f"{args['learning_rate']}_{args['end_learning_rate']}_"
             f"{args['batch_size']}_{args['epochs']}_class_head_only_class_new"
@@ -269,6 +290,22 @@ if __name__ == "__main__":
             df_info_val = pd.merge(df_info_val, DF_INFO[['svs_file', 'Matching p53']], on='svs_file', how='left')
             HE_IHC_pairs_val = get_matching_pairs_p53(df_info_val)
             dataset_val = HEIHCDataset(DATA_DIR, HE_IHC_pairs_val, args['n_tokens'], df_info_val, args['study'])
+        elif args['study'] =='ttf1':
+            # FOR TRAINING
+            print(f"[INFO] Reading from {args['dataset_csv']}/train_{fold}.csv")
+            df_info_train = pd.read_csv(f"{args['dataset_csv']}/train_{fold}.csv")
+            df_info_train = df_info_train.rename(columns={'slide_id': 'slide_he'})
+            df_info_train = pd.merge(df_info_train[['slide_he','label']], DF_INFO[['slide_he', 'slide_ihc','slide_id']], on='slide_he',how='left')
+            HE_IHC_pairs_train = get_matching_pairs_ttf1(df_info_train)
+            dataset_train = HEIHCDataset(DATA_DIR, HE_IHC_pairs_train, args["n_tokens"], df_info_train, args['study'])
+            # FOR VALIDATION
+            print(f"[INFO] Reading from {args['dataset_csv']}/val_{fold}.csv")
+            df_info_val = pd.read_csv(f"{args['dataset_csv']}/val_{fold}.csv")
+            df_info_val = df_info_val.rename(columns={'slide_id': 'slide_he'})
+            df_info_val = pd.merge(df_info_val[['slide_he','label']], DF_INFO[['slide_he', 'slide_ihc','slide_id']], on='slide_he', how='left')
+            HE_IHC_pairs_val = get_matching_pairs_ttf1(df_info_val)
+            dataset_val = HEIHCDataset(DATA_DIR, HE_IHC_pairs_val, args['n_tokens'], df_info_val, args['study'])
+
         elif args['study'] == 'ki67':
             # FOR TRAINING
             print(f"[INFO] Reading from {args['dataset_csv']}/train_{fold}.csv")
