@@ -60,10 +60,18 @@ class HEIHCDataset(Dataset):
         elif self.study == "ttf1":
             label = self.df_info[self.df_info['slide_he'] == f"{he_filename}"]['label'].values[0] 
             slide_id = self.df_info[self.df_info['slide_he'] == f"{he_filename}"]['slide_id'].values[0] 
-            
-        # Load H&E and IHC embeddings from .pt files
-        he_path = self.tile_embeds_dir /'he'/slide_id/ f"{he_filename}.h5"
-        ihc_path = self.tile_embeds_dir /'ihc'/slide_id/ f"{ihc_filename}.h5"
+        elif self.study=="her2":
+            label = self.df_info[self.df_info['slide ID']==f"{he_filename}"]["HER score"].values[0]
+            slide_id = self.df_info['slide ID']
+
+        if self.study=="her2":
+            he_path=self.tile_embeds_dir /'he'/f"{he_filename}.h5"
+            ihc_path=self.tile_embeds_dir/'ihc'/f"{ihc_filename}.h5"
+        else:
+
+            # Load H&E and IHC embeddings from .pt files
+            he_path = self.tile_embeds_dir /'he'/slide_id/ f"{he_filename}.h5"
+            ihc_path = self.tile_embeds_dir /'ihc'/slide_id/ f"{ihc_filename}.h5"
         he_embedding, he_coords = read_h5_file(he_path)
         ihc_embedding, ihc_coords = read_h5_file(ihc_path)
 

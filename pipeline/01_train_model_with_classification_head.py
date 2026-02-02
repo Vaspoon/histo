@@ -15,7 +15,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 # Internal imports
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
-sys.path.append(os.path.join(os.path.dirname(__file__), '../pdl1_project/prov-gigapath'))
+# sys.path.append(os.path.join(os.path.dirname(__file__), '../pdl1_project/prov-gigapath'))
 
 from datasets.HEIHCDataset import HEIHCDataset
 sys.path.append(os.path.join(os.path.dirname(__file__), '../prov-gigapath'))
@@ -186,6 +186,23 @@ def get_matching_pairs_pdl1(df_info):
         IHC_slides.append(ihc_slide)
     return list(zip(HE_slides, IHC_slides))
 
+def get_matching_pairs_her2(df_info):
+    HE_slides, IHC_slides = [], []
+    for index, row in df_info.iterrows():
+        he_slide, ihc_slide = row['slide ID'].split(".")[0], row['slide ID'].split(".")[0]
+
+        # check if tile embeddings are present
+        he_exists = any(f"{DATA_DIR}/{he_slide}.h5")
+        ihc_exists = any(f"{DATA_DIR}/{ihc_slide}.h5")
+
+        if not he_exists or not ihc_exists:
+            print(f"[INFO] Missing tile embeddings for slide {he_slide} or {ihc_slide}. Skipping...")
+            continue
+
+        HE_slides.append(he_slide)
+        IHC_slides.append(ihc_slide)
+    return list(zip(HE_slides, IHC_slides))
+
 def get_matching_pairs_ki67(df_info):
     HE_slides, IHC_slides = [], []
     for index, row in df_info.iterrows():
@@ -228,7 +245,7 @@ if __name__ == "__main__":
 
     if args['only_class_loss']:
         EXP_ID = (
-F            f"tangle_{args['study']}_binary_"
+            f"tangle_{args['study']}_binary_"
             f"{args['n_tokens']}_{args['temperature']}_"
             f"{args['learning_rate']}_{args['end_learning_rate']}_"
             f"{args['batch_size']}_{args['epochs']}_class_head_only_class_new"
@@ -321,7 +338,20 @@ F            f"tangle_{args['study']}_binary_"
             df_info_val = pd.merge(df_info_val, DF_INFO[['HE_Slide', 'IHC_Slide']], on='HE_Slide', how='left')
             HE_IHC_pairs_val = get_matching_pairs_ki67(df_info_val)
             dataset_val = HEIHCDataset(DATA_DIR, HE_IHC_pairs_val, args['n_tokens'], df_info_val, args['study'])
-
+        elif args['study']=='her2':
+            #Training
+            print(f"[INFO] Reading from {args['dataset_csv']}/train_{fold}.csv")
+            df_info_train = pd.read_csv(f"{args['dataset_csv']}/train_{fold}.csv")
+            df_info_train = pd.merge(df_info_train, DF_INFO[['slide ID']], on='slide ID', how='left')
+            HE_IHC_pairs_train = get_matching_pairs_her2(df_info_train)
+            dataset_train = HEIHCDataset(DATA_DIR, HE_IHC_pairs_train, args["n_tokens"], df_info_train, args['study'])
+            # FOR VALIDATION
+            print(f"[INFO] Reading from {args['dataset_csv']}/val_{fold}.csv")
+            df_info_val = pd.read_csv(f"{args['dataset_csv']}/val_{fold}.csv")
+            df_info_val = pd.merge(df_info_val, DF_INFO[['slide ID']], on='slide ID', how='left')
+            HE_IHC_pairs_val = get_matching_pairs_her2(df_info_val)
+            dataset_val = HEIHCDataset(DATA_DIR, HE_IHC_pairs_val, args['n_tokens'], df_info_val, args['study'])
+        
         train_dataloader = DataLoader(dataset_train, batch_size=args["batch_size"], shuffle=True, num_workers=args["num_workers"])
         val_dataloader = DataLoader(dataset_val, batch_size=args["batch_size"], shuffle=False)
         print(f"Number of training samples: {len(dataset_train)}")
