@@ -252,7 +252,7 @@ if __name__ == "__main__":
         elif args.study =='her2':
             HE_slides_train = get_HE_slides_her2(args,df_info_train)
             HE_slides_val = get_HE_slides_her2(args,df_info_val)
-            HE_slides_test = get_HE_slides_her2(args,df_info_train)
+            HE_slides_test = get_HE_slides_her2(args,df_info_test)
         else:
             print('missing get_HE_slides fucntion for said study')
             
