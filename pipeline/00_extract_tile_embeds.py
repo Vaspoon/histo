@@ -43,12 +43,11 @@ if __name__ == "__main__":
         
     for slide_path in tqdm(slide_paths, desc="Processing slides"):
         print(f"Processing slide: {slide_path}")
-        outputs = extract_tile_embeddings(slide_path, tile_encoder)
         out_file = out_dir / f"{slide_path.stem}.h5"
-
         if out_file.exists():
             print(f"Skipping {slide_path.stem} as it already exists.")
             continue
+        outputs = extract_tile_embeddings(slide_path, tile_encoder)
 
         embeddings, coords = outputs['tile_embeds'], outputs['coords']
         save_to_h5(out_file, embeddings, coords)
